@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Succession Planner — Swiss Will</title>
+    <meta
+      name="description"
+      content="Interactive Swiss succession planner: build a family, set asset values, and see who inherits under each scenario."
+    />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/css/styles.css" />
+    <style>
+      /* ── Family-line colour tokens ────────────────────────────────── */
+      :root {
+        --ln-A:       #2F5C8A;
+        --ln-B:       #B07A2E;
+        --ln-C:       #6E4E96;
+        --ln-S:       #3F7A5F;
+        --ln-O:       #8A867B;
+        --ln-red:     #CB2D24;
+        --ln-redsoft: #fde8e6;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ln-A:       #5b9bd5;
+          --ln-B:       #d4a555;
+          --ln-C:       #a07bd6;
+          --ln-S:       #5aaa7f;
+          --ln-O:       #a09d95;
+          --ln-redsoft: #3d1a18;
+        }
+      }
+
+      /* ── Two-column planner grid ──────────────────────────────────── */
+      .pl-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+      }
+      @media (max-width: 55rem) {
+        .pl-grid { grid-template-columns: 1fr; }
+      }
+
+      /* ── Builder panel ────────────────────────────────────────────── */
+      .pl-panel {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .pl-sec { padding: 1rem 1rem 1.1rem; }
+      .pl-sec + .pl-sec { border-top: 1px solid var(--color-border); }
+
+      .pl-legend {
+        font-size: .7rem;
+        font-weight: 700;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+        color: var(--color-muted);
+        margin: 0 0 .75rem;
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+      }
+      .pl-legend b { color: var(--color-text); }
+
+      /* ── Form fields ──────────────────────────────────────────────── */
+      .pl-field { margin-bottom: .75rem; }
+      .pl-field:last-child { margin-bottom: 0; }
+      .pl-lab {
+        display: block;
+        font-size: .75rem;
+        font-weight: 500;
+        color: var(--color-muted);
+        margin-bottom: .3rem;
+      }
+      .pl-tin {
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--color-border);
+        border-radius: calc(var(--radius) / 2);
+        background: var(--color-bg);
+        overflow: hidden;
+        transition: border-color .15s;
+      }
+      .pl-tin:focus-within { border-color: var(--color-accent); }
+      .pl-pre {
+        font-size: .72rem;
+        color: var(--color-muted);
+        padding: 0 0 0 .6rem;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .pl-tin input {
+        border: 0;
+        outline: 0;
+        background: transparent;
+        padding: .5rem .6rem;
+        width: 100%;
+        font-size: .875rem;
+        color: var(--color-text);
+        font-family: var(--font-sans);
+      }
+      .pl-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      /* hide number spinners */
+      .pl-num::-webkit-outer-spin-button,
+      .pl-num::-webkit-inner-spin-button { -webkit-appearance: none; }
+      .pl-num { -moz-appearance: textfield; }
+
+      .pl-namein {
+        border: 1px solid var(--color-border);
+        border-radius: calc(var(--radius) / 2);
+        background: var(--color-bg);
+        padding: .5rem .6rem;
+        width: 100%;
+        font-size: .875rem;
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        outline: 0;
+        transition: border-color .15s;
+      }
+      .pl-namein:focus { border-color: var(--color-accent); }
+
+      /* ── Spouse two-col ───────────────────────────────────────────── */
+      .pl-two { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: .75rem; }
+      .pl-who {
+        border: 1px solid var(--color-border);
+        border-radius: calc(var(--radius) / 2);
+        padding: .7rem;
+        background: var(--color-bg);
+      }
+      .pl-whohd {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        margin-bottom: .6rem;
+        font-weight: 600;
+        font-size: .82rem;
+      }
+      .pl-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 99px;
+        flex: none;
+        display: inline-block;
+      }
+
+      /* ── Children builder ─────────────────────────────────────────── */
+      .pl-kid {
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        padding: .5rem 0;
+        border-top: 1px dashed var(--color-border);
+      }
+      .pl-kid:first-child { border-top: 0; }
+      .pl-kid .pl-namein { flex: 1; min-width: 0; font-size: .82rem; padding: .35rem .5rem; }
+      .pl-seg {
+        display: inline-flex;
+        border: 1px solid var(--color-border);
+        border-radius: calc(var(--radius) / 2);
+        overflow: hidden;
+        background: var(--color-bg);
+        flex: none;
+      }
+      .pl-seg button {
+        border: 0;
+        background: transparent;
+        padding: .3rem .45rem;
+        font-size: .68rem;
+        font-weight: 600;
+        color: var(--color-muted);
+        border-left: 1px solid var(--color-border);
+        cursor: pointer;
+        font-family: var(--font-sans);
+        white-space: nowrap;
+      }
+      .pl-seg button:first-child { border-left: 0; }
+      .pl-seg button.is-on { color: #fff; }
+      .pl-xbtn {
+        border: 1px solid var(--color-border);
+        background: var(--color-bg);
+        width: 26px;
+        height: 26px;
+        border-radius: calc(var(--radius) / 2);
+        color: var(--color-muted);
+        font-size: 1rem;
+        cursor: pointer;
+        flex: none;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        font-family: var(--font-sans);
+      }
+      .pl-xbtn:hover { border-color: var(--ln-red); color: var(--ln-red); }
+      .pl-addk {
+        margin-top: .65rem;
+        border: 1px dashed var(--color-border);
+        background: transparent;
+        width: 100%;
+        padding: .5rem;
+        border-radius: calc(var(--radius) / 2);
+        font-size: .8rem;
+        font-weight: 600;
+        color: var(--color-muted);
+        cursor: pointer;
+        font-family: var(--font-sans);
+      }
+      .pl-addk:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+      /* ── Slider ───────────────────────────────────────────────────── */
+      .pl-slider-val {
+        font-size: .8rem;
+        font-weight: 600;
+        color: var(--color-accent);
+        margin-bottom: .35rem;
+        font-variant-numeric: tabular-nums;
+      }
+      input[type="range"].pl-slider {
+        width: 100%;
+        accent-color: var(--color-accent);
+        cursor: pointer;
+        margin: 0;
+      }
+      .pl-slider-endpoints {
+        display: flex;
+        justify-content: space-between;
+        font-size: .68rem;
+        color: var(--color-muted);
+        margin-top: .25rem;
+      }
+
+      /* ── Clause toggle ────────────────────────────────────────────── */
+      .pl-tog {
+        display: flex;
+        align-items: flex-start;
+        gap: .6rem;
+        padding: .75rem 0 .25rem;
+        cursor: pointer;
+        border-top: 1px solid var(--color-border);
+      }
+      .pl-sw {
+        width: 36px;
+        height: 20px;
+        border-radius: 99px;
+        border: 1px solid var(--color-border);
+        background: var(--color-border);
+        position: relative;
+        flex: none;
+        transition: background .18s, border-color .18s;
+        margin-top: 2px;
+      }
+      .pl-sw::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 99px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0,0,0,.2);
+        transition: left .18s;
+      }
+      .pl-sw.is-on { background: var(--color-accent); border-color: var(--color-accent); }
+      .pl-sw.is-on::after { left: 18px; }
+      .pl-togtxt b { font-size: .85rem; font-weight: 600; display: block; }
+      .pl-togtxt span { font-size: .75rem; color: var(--color-muted); display: block; margin-top: 2px; max-width: 36ch; }
+
+      /* ── Scenario tabs ────────────────────────────────────────────── */
+      .pl-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+      .pl-tab {
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+        border-radius: calc(var(--radius) / 2);
+        padding: .45rem .7rem;
+        font-size: .78rem;
+        font-weight: 600;
+        color: var(--color-muted);
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        cursor: pointer;
+        font-family: var(--font-sans);
+      }
+      .pl-skull { width: 8px; height: 8px; border-radius: 99px; background: var(--color-border); flex: none; }
+      .pl-tab.is-active { border-color: var(--color-text); color: var(--color-text); background: var(--color-bg); }
+      .pl-tab.is-active .pl-skull { background: var(--ln-red); }
+
+      /* ── Result header ────────────────────────────────────────────── */
+      .pl-rsum { font-size: 1.15rem; font-weight: 700; margin: 0 0 .2rem; line-height: 1.3; }
+      .pl-rsub { color: var(--color-muted); font-size: .82rem; margin: 0 0 1rem; font-variant-numeric: tabular-nums; }
+
+      /* ── Banner ───────────────────────────────────────────────────── */
+      .pl-banner {
+        display: flex;
+        gap: .6rem;
+        align-items: flex-start;
+        border: 1px solid var(--ln-red);
+        background: var(--ln-redsoft);
+        border-radius: calc(var(--radius) / 2);
+        padding: .7rem .8rem;
+        margin-bottom: 1rem;
+        color: #7a2e29;
+      }
+      @media (prefers-color-scheme: dark) { .pl-banner { color: #f8a9a5; } }
+      .pl-bdot { width: 12px; height: 12px; border-radius: 2px; background: var(--ln-red); flex: none; margin-top: 2px; }
+      .pl-banner b { font-size: .82rem; display: block; margin-bottom: 2px; }
+      .pl-banner p { margin: 0; font-size: .78rem; }
+
+      /* ── Events ───────────────────────────────────────────────────── */
+      .pl-legend-sm {
+        font-size: .68rem;
+        font-weight: 700;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+        color: var(--color-muted);
+        margin-bottom: .55rem;
+      }
+      .pl-event {
+        border: 1px solid var(--color-border);
+        border-radius: calc(var(--radius) / 2);
+        background: var(--color-bg);
+        margin-bottom: .6rem;
+        overflow: hidden;
+      }
+      .pl-evhd {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: .5rem;
+        padding: .55rem .75rem;
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-surface);
+      }
+      .pl-who2 { display: flex; align-items: center; gap: .4rem; font-weight: 600; font-size: .85rem; }
+      .pl-rd { width: 9px; height: 9px; border-radius: 2px; background: var(--ln-red); flex: none; }
+      .pl-est { font-size: .78rem; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+      .pl-evnote { font-size: .72rem; color: var(--color-muted); padding: .5rem .75rem .1rem; line-height: 1.45; }
+      .pl-recip {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        padding: .42rem .75rem;
+        border-top: 1px dashed var(--color-border);
+      }
+      .pl-recip-nm { display: flex; align-items: center; gap: .4rem; min-width: 0; flex: 1; }
+      .pl-recip-nm b { font-weight: 600; font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .pl-role { font-size: .7rem; color: var(--color-muted); margin-left: .2rem; white-space: nowrap; }
+      .pl-amt { font-size: .82rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+      /* ── Final holdings ───────────────────────────────────────────── */
+      .pl-final {
+        border: 1px solid var(--color-border);
+        border-radius: calc(var(--radius) / 2);
+        background: var(--color-surface);
+        padding: .85rem;
+      }
+      .pl-hrow { padding: .65rem 0; border-top: 1px solid var(--color-border); }
+      .pl-hrow:first-child { border-top: 0; padding-top: 0; }
+      .pl-htop { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; }
+      .pl-htop b { font-weight: 600; font-size: .9rem; }
+      .pl-hamt { font-size: .9rem; font-variant-numeric: tabular-nums; font-weight: 500; margin-left: auto; white-space: nowrap; }
+      .pl-bar { height: 8px; border-radius: 2px; background: var(--color-border); overflow: hidden; display: flex; }
+      .pl-bar i { display: block; height: 100%; }
+      .pl-src { display: flex; gap: .35rem; margin-top: .4rem; flex-wrap: wrap; }
+      .pl-chip { font-size: .68rem; color: var(--color-muted); display: inline-flex; align-items: center; gap: .3rem; }
+      .pl-chip i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; flex: none; font-style: normal; }
+
+      /* ── Insights ─────────────────────────────────────────────────── */
+      .pl-ins { margin-top: 1rem; }
+      .pl-icard { border-left: 3px solid var(--color-border); padding: .45rem 0 .45rem .75rem; margin-bottom: .6rem; }
+      .pl-icard.warn { border-color: var(--ln-red); }
+      .pl-icard.good { border-color: var(--ln-S); }
+      .pl-icard b { font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; display: block; margin-bottom: 2px; color: var(--color-muted); }
+      .pl-icard.warn b { color: var(--ln-red); }
+      .pl-icard.good b { color: var(--ln-S); }
+      .pl-icard p { margin: 0; font-size: .82rem; }
+
+      /* ── Caveats ──────────────────────────────────────────────────── */
+      .pl-notes { margin-top: 2rem; border-top: 1px solid var(--color-border); padding-top: 1rem; }
+      .pl-notes summary { font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--color-muted); cursor: pointer; }
+      .pl-notes ul { margin: .75rem 0 0; padding-left: 1.1rem; color: var(--color-muted); font-size: .82rem; }
+      .pl-notes li { margin-bottom: .4rem; line-height: 1.55; }
+    </style>
+  </head>
+  <body data-page="planner">
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="/">
+          <img src="/assets/favicon.svg" alt="" />
+          <span>Swiss Will</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="primary-nav"
+        >
+          Menu
+        </button>
+        <nav class="site-nav" id="primary-nav" aria-label="Primary">
+          <ul>
+            <li><a data-nav="home" href="/">Home</a></li>
+            <li><a data-nav="options" href="/options/">Options</a></li>
+            <li><a data-nav="about" href="/about/">About</a></li>
+            <li><a data-nav="planner" href="/planner/">Planner</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="container">
+
+        <section class="hero" style="margin-bottom:1.5rem">
+          <h1>Succession planner</h1>
+          <p class="lead">
+            Build a family and its assets, then play out who inherits under each
+            scenario. Follows the Swiss matrimonial-property split and
+            forced-heirship rules after the 2023 reform.
+          </p>
+        </section>
+
+        <div class="pl-grid">
+
+          <!-- ── BUILDER ──────────────────────────────────────────── -->
+          <div class="pl-panel">
+
+            <!-- 1 · The couple -->
+            <div class="pl-sec">
+              <div class="pl-legend"><b>1</b>&nbsp;The couple</div>
+              <div class="pl-two">
+
+                <div class="pl-who">
+                  <div class="pl-whohd">
+                    <span class="pl-dot" style="background:var(--ln-A)"></span>Spouse A
+                  </div>
+                  <div class="pl-field">
+                    <label class="pl-lab" for="pl-a-name">Name</label>
+                    <input class="pl-namein" id="pl-a-name" type="text" value="Anna" autocomplete="off" />
+                  </div>
+                  <div class="pl-field">
+                    <label class="pl-lab" for="pl-a-assets">Individual assets</label>
+                    <div class="pl-tin">
+                      <span class="pl-pre">CHF</span>
+                      <input class="pl-num" id="pl-a-assets" type="number" value="200000" min="0" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pl-who">
+                  <div class="pl-whohd">
+                    <span class="pl-dot" style="background:var(--ln-B)"></span>Spouse B
+                  </div>
+                  <div class="pl-field">
+                    <label class="pl-lab" for="pl-b-name">Name</label>
+                    <input class="pl-namein" id="pl-b-name" type="text" value="Beat" autocomplete="off" />
+                  </div>
+                  <div class="pl-field">
+                    <label class="pl-lab" for="pl-b-assets">Individual assets</label>
+                    <div class="pl-tin">
+                      <span class="pl-pre">CHF</span>
+                      <input class="pl-num" id="pl-b-assets" type="number" value="100000" min="0" />
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+              <div class="pl-field">
+                <label class="pl-lab" for="pl-shared">Shared assets (split 50/50 on a death)</label>
+                <div class="pl-tin">
+                  <span class="pl-pre">CHF</span>
+                  <input class="pl-num" id="pl-shared" type="number" value="600000" min="0" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 2 · Children -->
+            <div class="pl-sec">
+              <div class="pl-legend"><b>2</b>&nbsp;Children</div>
+              <div id="pl-kids"></div>
+              <button class="pl-addk" id="pl-add-kid" type="button">+ Add a child</button>
+            </div>
+
+            <!-- 3 · Arrangements -->
+            <div class="pl-sec">
+              <div class="pl-legend"><b>3</b>&nbsp;Arrangements</div>
+
+              <div class="pl-field">
+                <label class="pl-lab" for="pl-spouse-slider">
+                  Spouse's share of the estate (when children exist)
+                </label>
+                <div class="pl-slider-val" id="pl-slider-label" aria-live="polite">
+                  50% &rarr; Spouse &middot; 50% &rarr; Descendants
+                </div>
+                <input
+                  class="pl-slider"
+                  id="pl-spouse-slider"
+                  type="range"
+                  min="50"
+                  max="75"
+                  step="1"
+                  value="50"
+                  aria-label="Spouse's share percentage"
+                />
+                <div class="pl-slider-endpoints">
+                  <span>50% — intestate default</span>
+                  <span>75% — maximum (will)</span>
+                </div>
+              </div>
+
+              <div
+                class="pl-tog"
+                id="pl-clause-btn"
+                role="button"
+                tabindex="0"
+                aria-pressed="false"
+              >
+                <span class="pl-sw"></span>
+                <span class="pl-togtxt">
+                  <b>Common-accident (survivorship) clause</b>
+                  <span>Treats deaths within the survival window (~30 days) as simultaneous, so neither spouse inherits from the other.</span>
+                </span>
+              </div>
+            </div>
+
+          </div><!-- /pl-panel -->
+
+          <!-- ── RESULTS ──────────────────────────────────────────── -->
+          <div>
+            <div class="pl-tabs" id="pl-tabs"></div>
+
+            <h2 class="pl-rsum" id="pl-scen-label"></h2>
+            <p class="pl-rsub" id="pl-estates"></p>
+
+            <div class="pl-banner" id="pl-banner" hidden></div>
+
+            <div class="pl-legend-sm">Estate division</div>
+            <div id="pl-events"></div>
+
+            <div class="pl-legend-sm" style="margin-top:1.25rem">Where the assets end up</div>
+            <div class="pl-final" id="pl-holdings"></div>
+
+            <div class="pl-ins" id="pl-insights" hidden>
+              <div class="pl-legend-sm">What this means</div>
+              <div id="pl-ins-list"></div>
+            </div>
+          </div>
+
+        </div><!-- /pl-grid -->
+
+        <details class="pl-notes">
+          <summary>How this is modelled &middot; caveats</summary>
+          <ul>
+            <li>Compulsory portions use the <strong>post-2023</strong> reform: spouse and descendants each keep half of their statutory share; parents have no compulsory portion.</li>
+            <li>Shared assets are split <strong>50/50</strong> on a death as a simplified stand-in for the default matrimonial regime (participation in acquired property). A surviving spouse keeps their own assets plus half the shared pot before any inheritance happens.</li>
+            <li>Only a spouse's <strong>own descendants</strong> (common children plus that spouse's individual children) inherit from them — stepchildren take nothing by intestacy.</li>
+            <li>The sequential cases assume the first death's inheritance fully passes before the second death. The common-accident clause collapses both into a simultaneous death (Art. 32 ZGB presumption).</li>
+            <li>The slider sets the spouse's share when descendants exist. At 50% this matches the intestate default; at 75% it reflects a will giving the spouse the maximum permitted under Swiss forced heirship (children's compulsory portion = 25%).</li>
+            <li>Pillar 3a, life-insurance beneficiary designations, lifetime gifts, cantonal inheritance tax, and the no-descendants/parental-line cases are out of scope. This is an illustration, not legal advice.</li>
+          </ul>
+        </details>
+
+      </div><!-- /container -->
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <span>&copy; <span data-year>2026</span> Swiss Will (placeholder)</span>
+        <span><a href="/about/">About</a> &middot; Not legal advice</span>
+      </div>
+    </footer>
+
+    <script defer src="/assets/js/main.js"></script>
+    <script>
+    (function () {
+      'use strict';
+
+      // ── State ────────────────────────────────────────────────────────────
+      const state = {
+        a: { name: 'Anna', assets: 200000 },
+        b: { name: 'Beat', assets: 100000 },
+        shared: 600000,
+        kids: [
+          { id: 'k1', name: 'Clara',  parent: 'common' },
+          { id: 'k2', name: 'Andrin', parent: 'A' },
+          { id: 'k3', name: 'Bruno',  parent: 'B' }
+        ],
+        spousePercent: 50,
+        clause: false,
+        scenario: 'A_first'
+      };
+
+      // ── Helpers ──────────────────────────────────────────────────────────
+      function fmt(n) {
+        const neg = n < -0.5;
+        const r = Math.round(Math.abs(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '’');
+        return (neg ? '−' : '') + r;
+      }
+
+      const lineColor = {
+        A: 'var(--ln-A)', B: 'var(--ln-B)', common: 'var(--ln-C)',
+        spouse: 'var(--ln-S)', other: 'var(--ln-O)', own: 'var(--ln-S)'
+      };
+
+      function esc(s) {
+        return String(s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function srcObj(key, val) {
+        const o = {}; o[key] = val; return o;
+      }
+
+      // ── Calculation engine ───────────────────────────────────────────────
+      function compute() {
+        const { a, b, shared, kids, spousePercent, clause, scenario: sc } = state;
+        const estateA = a.assets + shared / 2;
+        const estateB = b.assets + shared / 2;
+        const spouseFrac = spousePercent / 100;
+        const descFrac   = 1 - spouseFrac;
+        const names = { A: a.name || 'Spouse A', B: b.name || 'Spouse B' };
+
+        function roleK(p) {
+          return p === 'common' ? 'child of both'
+            : p === 'A' ? names.A + '’s child'
+            : names.B + '’s child';
+        }
+
+        function fracs(deceased, spouseAlive) {
+          const other = deceased === 'A' ? 'B' : 'A';
+          const desc = kids.filter(c => c.parent === 'common' || c.parent === deceased);
+          const out = [];
+          if (spouseAlive) {
+            if (desc.length) {
+              out.push({ id: 'sp-' + other, name: names[other], line: 'spouse', role: 'surviving spouse', frac: spouseFrac });
+              desc.forEach(c => out.push({ id: c.id, name: c.name || 'Child', line: c.parent, role: roleK(c.parent), frac: descFrac / desc.length }));
+            } else {
+              out.push({ id: 'sp-' + other, name: names[other], line: 'spouse', role: 'surviving spouse (no descendants)', frac: 1 });
+            }
+          } else {
+            if (desc.length) {
+              desc.forEach(c => out.push({ id: c.id, name: c.name || 'Child', line: c.parent, role: roleK(c.parent), frac: 1 / desc.length }));
+            } else {
+              out.push({ id: 'oth-' + deceased, name: 'Other heirs', line: 'other', role: 'parents / siblings / canton', frac: 1 });
+            }
+          }
+          return out;
+        }
+
+        function applyFracs(recips, srcMap) {
+          const total = (srcMap.A || 0) + (srcMap.B || 0) + (srcMap.own || 0);
+          return recips.map(r => ({
+            ...r,
+            amount: r.frac * total,
+            bySource: { A: r.frac * (srcMap.A || 0), B: r.frac * (srcMap.B || 0), own: r.frac * (srcMap.own || 0) }
+          }));
+        }
+
+        const holdMap = {};
+        function addHolding(id, name, line, role, amount, bySource) {
+          if (amount <= 0.5) return;
+          if (!holdMap[id]) holdMap[id] = { id, name, line, role, total: 0, bySource: { A: 0, B: 0, own: 0 } };
+          holdMap[id].total += amount;
+          holdMap[id].bySource.A   += (bySource.A   || 0);
+          holdMap[id].bySource.B   += (bySource.B   || 0);
+          holdMap[id].bySource.own += (bySource.own || 0);
+        }
+
+        const events = [];
+        let banner = null;
+        const clauseOverride = clause && (sc === 'A_first' || sc === 'B_first');
+        const bothDie = sc === 'A_first' || sc === 'B_first' || sc === 'simultaneous';
+
+        function splitNote(survivorName, isFirst) {
+          const sp = spousePercent, dp = 100 - sp;
+          if (sp === 50) return isFirst
+            ? `Statutory (intestate) split: 50% to ${survivorName}, 50% shared among descendants.`
+            : `${survivorName} survives and inherits 50%; descendants share the other 50%.`;
+          if (sp === 75) return isFirst
+            ? `Will maximises spouse: ${survivorName} receives 75%; descendants take their protected 25%.`
+            : `${survivorName} survives and (per the will) takes 75%; descendants take their protected 25%.`;
+          return isFirst
+            ? `Will gives ${sp}% to ${survivorName}; descendants share the remaining ${dp}%.`
+            : `${survivorName} survives; will gives ${sp}% to them, descendants share ${dp}%.`;
+        }
+
+        function singleDeath(dec) {
+          const sur = dec === 'A' ? 'B' : 'A';
+          const estate = dec === 'A' ? estateA : estateB;
+          const surRetained = (sur === 'A' ? a.assets : b.assets) + shared / 2;
+          addHolding('sp-' + sur, names[sur], 'spouse', 'surviving spouse', surRetained, { own: surRetained });
+          const flows = applyFracs(fracs(dec, true), srcObj(dec, estate));
+          flows.forEach(f => addHolding(f.id, f.name, f.line, f.role, f.amount, f.bySource));
+          events.push({ who: dec, estate, note: splitNote(names[sur], true), recips: flows });
+        }
+
+        if (sc === 'A_only') {
+          singleDeath('A');
+        } else if (sc === 'B_only') {
+          singleDeath('B');
+        } else if (sc === 'simultaneous' || clauseOverride) {
+          if (clauseOverride) {
+            banner = {
+              t: 'Common-accident clause applied',
+              p: 'Both deaths fall inside the survival window, so the order is ignored. Neither spouse inherits from the other — each estate passes straight down its own bloodline.'
+            };
+          }
+          const fa = applyFracs(fracs('A', false), { A: estateA });
+          const fb = applyFracs(fracs('B', false), { B: estateB });
+          fa.forEach(f => addHolding(f.id, f.name, f.line, f.role, f.amount, f.bySource));
+          fb.forEach(f => addHolding(f.id, f.name, f.line, f.role, f.amount, f.bySource));
+          events.push({ who: 'A', estate: estateA, note: `No surviving spouse — passes to ${names.A}’s descendants.`, recips: fa });
+          events.push({ who: 'B', estate: estateB, note: `No surviving spouse — passes to ${names.B}’s descendants.`, recips: fb });
+        } else {
+          const first  = sc === 'A_first' ? 'A' : 'B';
+          const second = first === 'A' ? 'B' : 'A';
+          const estate1   = first  === 'A' ? estateA : estateB;
+          const estate2own = second === 'A' ? estateA : estateB;
+
+          const r1 = applyFracs(fracs(first, true), srcObj(first, estate1));
+          const spouseInherit = r1.filter(f => f.line === 'spouse').reduce((s, f) => s + f.amount, 0);
+          r1.filter(f => f.line !== 'spouse').forEach(f => addHolding(f.id, f.name, f.line, f.role, f.amount, f.bySource));
+          events.push({ who: first, estate: estate1, note: splitNote(names[second], false), recips: r1 });
+
+          const srcMap2 = srcObj(first, spouseInherit);
+          srcMap2[second] = estate2own;
+          const r2 = applyFracs(fracs(second, false), srcMap2);
+          r2.forEach(f => addHolding(f.id, f.name, f.line, f.role, f.amount, f.bySource));
+          events.push({
+            who: second, estate: spouseInherit + estate2own,
+            note: `Estate now includes CHF ${fmt(spouseInherit)} inherited from ${names[first]}. With no surviving spouse it passes to ${names[second]}’s descendants — carrying ${names[first]}’s money into ${names[second]}’s bloodline.`,
+            recips: r2
+          });
+        }
+
+        const holdings = Object.values(holdMap).sort((x, y) => y.total - x.total);
+
+        // ── Insights ──────────────────────────────────────────────────────
+        const aOnly = kids.filter(c => c.parent === 'A');
+        const bOnly = kids.filter(c => c.parent === 'B');
+        const ins = [];
+
+        if (sc === 'A_only' || sc === 'B_only') {
+          const dec  = sc === 'A_only' ? 'A' : 'B';
+          const sur  = dec === 'A' ? 'B' : 'A';
+          const step = dec === 'A' ? bOnly : aOnly;
+          if (step.length) {
+            ins.push({ type: 'warn', t: 'Stepchildren excluded', p: `${names[sur]}’s own ${step.length === 1 ? 'child' : 'children'} (${step.map(k => k.name || '?').join(', ')}) ${step.length === 1 ? 'is' : 'are'} not a descendant of ${names[dec]} and inherit${step.length === 1 ? 's' : ''} nothing from this estate.` });
+          }
+          ins.push({ type: '', t: 'Property vs. inheritance', p: `${names[sur]} first keeps their own assets and half of the shared pot as a property settlement — only ${names[dec]}’s CHF ${fmt(dec === 'A' ? estateA : estateB)} is actually inherited.` });
+          if (spousePercent > 50) ins.push({ type: 'good', t: 'Will in effect', p: `The will gives ${spousePercent}% to ${names[sur]}, leaving descendants only their protected ${100 - spousePercent}%.` });
+        }
+
+        if (bothDie) {
+          if (clauseOverride || sc === 'simultaneous') {
+            ins.push({ type: 'good', t: 'Bloodlines stay separate', p: `Each estate flows only to its own descendants. ${names.A}’s assets reach ${names.A}’s children and ${names.B}’s reach ${names.B}’s — no cross-over.` });
+          } else {
+            const first  = sc === 'A_first' ? 'A' : 'B';
+            const second = first === 'A' ? 'B' : 'A';
+            const stepOfFirst = first === 'A' ? bOnly : aOnly;
+            const ownOfFirst  = first === 'A' ? aOnly : bOnly;
+            const leaked = holdings
+              .filter(h => h.line === second)
+              .reduce((s, h) => s + (h.bySource[first] || 0), 0);
+            if (leaked > 0.5 && stepOfFirst.length) {
+              ins.push({ type: 'warn', t: 'Inheritance leaks across bloodlines', p: `CHF ${fmt(leaked)} that originated with ${names[first]} ends up with ${names[second]}’s ${stepOfFirst.length === 1 ? 'child' : 'children'} (${stepOfFirst.map(k => k.name || '?').join(', ')}) — ${names[first]}’s stepchild${stepOfFirst.length === 1 ? '' : 'ren'}. Because ${names[first]} died first, their money passed through ${names[second]} and down ${names[second]}’s line.` });
+            }
+            if (ownOfFirst.length) {
+              const ownGot = holdings
+                .filter(h => ownOfFirst.some(k => k.id === h.id))
+                .reduce((s, h) => s + h.total, 0);
+              ins.push({ type: '', t: `${names[first]}’s own children`, p: `${ownOfFirst.map(k => k.name || '?').join(', ')} receive CHF ${fmt(ownGot)} in total — only their share of ${names[first]}’s estate, since they have no claim on ${names[second]}’s.` });
+            }
+            ins.push({ type: 'good', t: 'A clause would fix this', p: `Turn on the common-accident clause to treat the deaths as simultaneous and keep ${names[first]}’s estate within ${names[first]}’s bloodline.` });
+          }
+        }
+
+        return { estateA, estateB, events, holdings, banner, ins, names };
+      }
+
+      // ── DOM render ───────────────────────────────────────────────────────
+      function render() {
+        const result = compute();
+        const { names, estateA, estateB, events, holdings, banner, ins } = result;
+        const sc = state.scenario;
+
+        // Tabs
+        const tabs = [
+          { id: 'A_only',       label: `${names.A} dies` },
+          { id: 'B_only',       label: `${names.B} dies` },
+          { id: 'A_first',      label: `Both · ${names.A} first` },
+          { id: 'B_first',      label: `Both · ${names.B} first` },
+          { id: 'simultaneous', label: 'Both · same moment' }
+        ];
+        document.getElementById('pl-tabs').innerHTML = tabs.map(t =>
+          `<button class="pl-tab${sc === t.id ? ' is-active' : ''}" data-scenario="${t.id}">` +
+          `<span class="pl-skull"></span>${esc(t.label)}</button>`
+        ).join('');
+
+        // Scenario header
+        document.getElementById('pl-scen-label').textContent = tabs.find(t => t.id === sc).label;
+        document.getElementById('pl-estates').textContent =
+          `${names.A}’s estate CHF ${fmt(estateA)} · ${names.B}’s estate CHF ${fmt(estateB)} · all figures CHF`;
+
+        // Banner
+        const bannerEl = document.getElementById('pl-banner');
+        if (banner) {
+          bannerEl.innerHTML = `<span class="pl-bdot"></span><div><b>${esc(banner.t)}</b><p>${esc(banner.p)}</p></div>`;
+          bannerEl.hidden = false;
+        } else {
+          bannerEl.hidden = true;
+          bannerEl.innerHTML = '';
+        }
+
+        // Events
+        document.getElementById('pl-events').innerHTML = events.map(ev =>
+          `<div class="pl-event">` +
+          `<div class="pl-evhd"><span class="pl-who2"><span class="pl-rd"></span>${esc(names[ev.who])} dies</span>` +
+          `<span class="pl-est">estate CHF ${fmt(ev.estate)}</span></div>` +
+          (ev.note ? `<div class="pl-evnote">${esc(ev.note)}</div>` : '') +
+          ev.recips.map(r =>
+            `<div class="pl-recip"><span class="pl-recip-nm">` +
+            `<span class="pl-dot" style="background:${lineColor[r.line]}"></span>` +
+            `<b>${esc(r.name)}</b><span class="pl-role">${esc(r.role)}</span></span>` +
+            `<span class="pl-amt">CHF ${fmt(r.amount)}</span></div>`
+          ).join('') + `</div>`
+        ).join('');
+
+        // Holdings
+        const maxHold = Math.max(1, ...holdings.map(h => h.total));
+        document.getElementById('pl-holdings').innerHTML = holdings.length === 0
+          ? `<p style="color:var(--color-muted);font-size:.82rem;margin:0">No heirs to receive these assets.</p>`
+          : holdings.map(h => {
+              const src = h.bySource;
+              let chips = '';
+              if (src.own > 0.5) chips += `<span class="pl-chip"><i style="background:var(--ln-S)"></i>own CHF ${fmt(src.own)}</span>`;
+              if (src.A   > 0.5) chips += `<span class="pl-chip"><i style="background:var(--ln-A)"></i>from ${esc(names.A)} CHF ${fmt(src.A)}</span>`;
+              if (src.B   > 0.5) chips += `<span class="pl-chip"><i style="background:var(--ln-B)"></i>from ${esc(names.B)} CHF ${fmt(src.B)}</span>`;
+              return `<div class="pl-hrow">` +
+                `<div class="pl-htop"><span class="pl-dot" style="background:${lineColor[h.line]}"></span>` +
+                `<b>${esc(h.name)}</b><span class="pl-role">${esc(h.role)}</span>` +
+                `<span class="pl-hamt">CHF ${fmt(h.total)}</span></div>` +
+                `<div class="pl-bar"><i style="width:${(h.total / maxHold * 100).toFixed(1)}%;background:${lineColor[h.line]}"></i></div>` +
+                (chips ? `<div class="pl-src">${chips}</div>` : '') + `</div>`;
+            }).join('');
+
+        // Insights
+        const insEl = document.getElementById('pl-insights');
+        if (ins.length) {
+          document.getElementById('pl-ins-list').innerHTML = ins.map(it =>
+            `<div class="pl-icard${it.type ? ' ' + it.type : ''}"><b>${esc(it.t)}</b><p>${esc(it.p)}</p></div>`
+          ).join('');
+          insEl.hidden = false;
+        } else {
+          insEl.hidden = true;
+        }
+
+        // Slider label
+        const sp = state.spousePercent;
+        document.getElementById('pl-slider-label').textContent =
+          `${sp}% → Spouse · ${100 - sp}% → Descendants`;
+      }
+
+      // ── Kids builder ─────────────────────────────────────────────────────
+      function renderKids() {
+        const names = { A: state.a.name || 'Spouse A', B: state.b.name || 'Spouse B' };
+        const el = document.getElementById('pl-kids');
+        el.innerHTML = state.kids.map(c => {
+          const parentBtns = ['common', 'A', 'B'].map(p => {
+            const lbl = p === 'common' ? 'Both' : esc(names[p]);
+            const on  = c.parent === p;
+            return `<button class="${on ? 'is-on' : ''}" ` +
+              (on ? `style="background:${lineColor[p]};color:#fff" ` : '') +
+              `data-kid-parent="${esc(c.id)}" data-parent-val="${p}" type="button">${lbl}</button>`;
+          }).join('');
+          return `<div class="pl-kid">` +
+            `<input class="pl-namein" type="text" value="${esc(c.name)}" placeholder="Name" data-kid-name="${esc(c.id)}" autocomplete="off" />` +
+            `<div class="pl-seg">${parentBtns}</div>` +
+            `<button class="pl-xbtn" data-kid-del="${esc(c.id)}" type="button" title="Remove" aria-label="Remove child">×</button>` +
+            `</div>`;
+        }).join('');
+
+        el.querySelectorAll('[data-kid-name]').forEach(input => {
+          input.addEventListener('input', () => {
+            const kid = state.kids.find(k => k.id === input.dataset.kidName);
+            if (kid) { kid.name = input.value; render(); }
+          });
+        });
+        el.querySelectorAll('[data-kid-parent]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const kid = state.kids.find(k => k.id === btn.dataset.kidParent);
+            if (kid) { kid.parent = btn.dataset.parentVal; renderKids(); render(); }
+          });
+        });
+        el.querySelectorAll('[data-kid-del]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.kids = state.kids.filter(k => k.id !== btn.dataset.kidDel);
+            renderKids(); render();
+          });
+        });
+      }
+
+      // ── Init ─────────────────────────────────────────────────────────────
+      function init() {
+        const bindText = (id, ref, key) => {
+          document.getElementById(id).addEventListener('input', e => {
+            ref[key] = e.target.value;
+            if (key === 'name') renderKids();
+            render();
+          });
+        };
+        const bindNum = (id, ref, key) => {
+          document.getElementById(id).addEventListener('input', e => {
+            ref[key] = parseFloat(e.target.value) || 0;
+            render();
+          });
+        };
+
+        bindText('pl-a-name',    state.a, 'name');
+        bindNum( 'pl-a-assets',  state.a, 'assets');
+        bindText('pl-b-name',    state.b, 'name');
+        bindNum( 'pl-b-assets',  state.b, 'assets');
+        bindNum( 'pl-shared',    state,   'shared');
+
+        const slider = document.getElementById('pl-spouse-slider');
+        slider.addEventListener('input', () => {
+          state.spousePercent = parseInt(slider.value, 10);
+          render();
+        });
+
+        const clauseBtn = document.getElementById('pl-clause-btn');
+        const toggleClause = () => {
+          state.clause = !state.clause;
+          clauseBtn.querySelector('.pl-sw').classList.toggle('is-on', state.clause);
+          clauseBtn.setAttribute('aria-pressed', String(state.clause));
+          render();
+        };
+        clauseBtn.addEventListener('click', toggleClause);
+        clauseBtn.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleClause(); }
+        });
+
+        document.getElementById('pl-add-kid').addEventListener('click', () => {
+          state.kids.push({ id: 'k' + Date.now(), name: '', parent: 'common' });
+          renderKids(); render();
+        });
+
+        document.getElementById('pl-tabs').addEventListener('click', e => {
+          const btn = e.target.closest('[data-scenario]');
+          if (!btn) return;
+          state.scenario = btn.dataset.scenario;
+          render();
+        });
+
+        renderKids();
+        render();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+    </script>
+  </body>
+</html>
