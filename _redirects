@@ -1,0 +1,5 @@
+# Cloudflare Pages — redirects
+# Docs: https://developers.cloudflare.com/pages/configuration/redirects/
+# One rule per line:  <from>  <to>  <status>
+# Example (uncomment to use):
+# /old-path  /options/  301

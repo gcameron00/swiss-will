@@ -1,15 +1,104 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>About</title>
-    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/assets/css/styles.css">
+    <title>About — Swiss Will</title>
+    <meta
+      name="description"
+      content="About the Swiss Will placeholder project: purpose, scope, and disclaimer."
+    />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/css/styles.css" />
+    <script defer src="/assets/js/main.js"></script>
   </head>
-  <body>
-    <h1>About</h1>
-    <p><a href="/">Back home</a></p>
+  <body data-page="about">
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="/">
+          <img src="/assets/favicon.svg" alt="" />
+          <span>Swiss Will</span>
+        </a>
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="primary-nav"
+        >
+          Menu
+        </button>
+        <nav class="site-nav" id="primary-nav" aria-label="Primary">
+          <ul>
+            <li><a data-nav="home" href="/">Home</a></li>
+            <li><a data-nav="options" href="/options/">Options</a></li>
+            <li><a data-nav="about" href="/about/">About</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="container">
+        <section class="hero">
+          <h1>About this project</h1>
+          <p class="lead">
+            Swiss Will is a small, framework-free static website that explains
+            the options available for inheritance and estate planning in
+            Switzerland.
+          </p>
+        </section>
+
+        <section>
+          <h2>Purpose</h2>
+          <p>
+            The goal is to present Swiss succession concepts in clear,
+            approachable language so that people can understand the broad shape
+            of their choices before speaking to a qualified professional. The
+            current site is an early <strong>placeholder shell</strong> — the
+            wording on each page is illustrative and will be rewritten.
+          </p>
+        </section>
+
+        <section>
+          <h2>Scope</h2>
+          <ul>
+            <li>Intestate succession (when there is no will)</li>
+            <li>Wills — holographic and public deed</li>
+            <li>Inheritance contracts (Erbvertrag)</li>
+            <li>Forced heirship and the disposable portion</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>How it is built</h2>
+          <p>
+            The site is hand-written HTML, CSS, and a small amount of vanilla
+            JavaScript — no framework and no build step. It is hosted on
+            <strong>Cloudflare Pages</strong> as static files. See the
+            <a href="https://github.com/gcameron00/swiss-will">repository</a> and
+            its <code>README.md</code> for details.
+          </p>
+        </section>
+
+        <section>
+          <p class="note">
+            <strong>Disclaimer:</strong> Nothing on this site is legal advice.
+            Swiss succession law is governed by the Civil Code (ZGB/CC) and can
+            change. Always consult a qualified notary or lawyer for your own
+            situation.
+          </p>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <span>&copy; <span data-year>2026</span> Swiss Will (placeholder)</span>
+        <span><a href="/">Home</a> &middot; Not legal advice</span>
+      </div>
+    </footer>
   </body>
 </html>
